@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String    // Will be hashed before storage
+  image         String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  posts         Post[]
+  reactions     Reaction[]
+  workouts      Workout[]
+  routines      Routine[]
+  followers     Follow[]  @relation("follower")
+  following     Follow[]  @relation("following")
+  listings      MarketplaceListing[]
+
+  @@map("users")
+}
+
+// Activity Feed - Posts
+model Post {
+  id        String    @id @default(cuid())
+  content   String
+  image     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  reactions Reaction[]
+
+  @@map("posts")
+}
+
+// Reactions (likes, comments on posts)
+model Reaction {
+  id        String    @id @default(cuid())
+  type      String    // "like", "comment", "share"
+  content   String?   // For comments
+  createdAt DateTime  @default(now())
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("reactions")
+}
+
+// Exercise library
+model Exercise {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  muscleGroup String    // "chest", "back", "legs", etc.
+  difficulty  String    // "beginner", "intermediate", "advanced"
+  instructions String?
+  image       String?
+  createdAt   DateTime  @default(now())
+
+  routineExercises RoutineExercise[]
+  workoutExercises WorkoutExercise[]
+
+  @@map("exercises")
+}
+
+// Workout routines
+model Routine {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  exercises   RoutineExercise[]
+  workouts    Workout[]
+
+  @@map("routines")
+}
+
+// Exercises within a routine
+model RoutineExercise {
+  id        String    @id @default(cuid())
+  sets      Int       @default(3)
+  reps      Int       @default(10)
+  weight    Float?    // Optional weight in kg
+  duration  Int?      // Optional duration in minutes
+  
+  routineId String
+  routine   Routine   @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  
+  exerciseId String
+  exercise  Exercise  @relation(fields: [exerciseId], references: [id])
+
+  @@map("routine_exercises")
+}
+
+// Logged workouts
+model Workout {
+  id        String    @id @default(cuid())
+  date      DateTime  @default(now())
+  duration  Int?      // in minutes
+  notes     String?
+  createdAt DateTime  @default(now())
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  routineId String?
+  routine   Routine?  @relation(fields: [routineId], references: [id])
+  
+  exercises WorkoutExercise[]
+
+  @@map("workouts")
+}
+
+// Exercises completed in a workout
+model WorkoutExercise {
+  id        String    @id @default(cuid())
+  setsCompleted Int?
+  repsCompleted Int?
+  weightUsed Float?
+  duration  Int?
+  
+  workoutId String
+  workout   Workout   @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  
+  exerciseId String
+  exercise  Exercise  @relation(fields: [exerciseId], references: [id])
+
+  @@map("workout_exercises")
+}
+
+// User follow relationships
+model Follow {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  
+  followerId  String
+  follower    User      @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  
+  followingId String
+  following   User      @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// Marketplace listings (coaches, services, equipment)
+model MarketplaceListing {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  category    String    // "coach", "diet_plan", "equipment"
+  price       Float
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("marketplace_listings")
+}
